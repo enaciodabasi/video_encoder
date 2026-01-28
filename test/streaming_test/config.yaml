@@ -1,0 +1,20 @@
+# Video Encoder Streaming Test Configuration
+
+encoder:
+  width: 640
+  height: 480
+  fps: 30
+  accel_type: "SOFTWARE"  # SOFTWARE, NVIDIA, INTEL, AMD, APPLE
+  constant_quality_enabled: true
+
+media:
+  # Path to the input video file (relative to config file or absolute)
+  input_file: "/home/naci/gs_kisa.avi"
+  # Set to true to loop the video
+  loop: true
+
+server:
+  # WebSocket server port
+  port: 8765
+  # Host address
+  host: "0.0.0.0"
