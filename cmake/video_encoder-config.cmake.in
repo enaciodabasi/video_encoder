@@ -1,0 +1,21 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies
+find_dependency(OpenCV REQUIRED)
+
+find_path(AVCODEC_INCLUDE_DIR libavcodec/avcodec.h)
+find_library(AVCODEC_LIBRARY avcodec)
+find_path(AVFORMAT_INCLUDE_DIR libavformat/avformat.h)
+find_library(AVFORMAT_LIBRARY avformat)
+find_path(AVUTIL_INCLUDE_DIR libavutil/avutil.h)
+find_library(AVUTIL_LIBRARY avutil)
+find_path(SWSCALE_INCLUDE_DIR libswscale/swscale.h)
+find_library(SWSCALE_LIBRARY swscale)
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/video_encoder-targets.cmake")
+
+# Check that all required components are found
+check_required_components(video_encoder)

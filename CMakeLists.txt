@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
-project(video_encoder)
+project(video_encoder VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
+
+# Include GNUInstallDirs for standard installation paths
+include(GNUInstallDirs)
 
 find_package(OpenCV REQUIRED)
 
@@ -17,7 +20,8 @@ find_library(SWSCALE_LIBRARY swscale)
 add_library(video_encoder STATIC src/video_encoder.cpp)
 
 target_include_directories(video_encoder PUBLIC 
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     ${OpenCV_INCLUDE_DIRS}
     ${AVCODEC_INCLUDE_DIR}
     ${AVFORMAT_INCLUDE_DIR}
@@ -33,13 +37,44 @@ target_link_libraries(video_encoder PUBLIC
     ${SWSCALE_LIBRARY}
 )
 
+# Installation rules
 install(TARGETS video_encoder
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
+    EXPORT video_encoder-targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 install(DIRECTORY include/
-    DESTINATION include
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+)
+
+# Export targets for find_package support
+install(EXPORT video_encoder-targets
+    FILE video_encoder-targets.cmake
+    NAMESPACE video_encoder::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/video_encoder
+)
+
+# Create package config file
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/video_encoder-config-version.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/video_encoder-config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/video_encoder-config.cmake"
+    @ONLY
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/video_encoder-config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/video_encoder-config-version.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/video_encoder
 )
 
 # =============================================================================

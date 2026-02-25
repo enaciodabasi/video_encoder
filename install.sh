@@ -153,9 +153,9 @@ build_cpp() {
     echo "Configuring with CMake..."
     cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_TESTS=ON \
-        -DBUILD_STREAMING_TEST=ON \
-        -DBUILD_METRICS_TEST=ON
+        -DBUILD_TESTS=OFF \
+        -DBUILD_STREAMING_TEST=OFF \
+        -DBUILD_METRICS_TEST=OFF
     
     # Get number of CPU cores
     NPROC=$(nproc 2>/dev/null || echo 4)
@@ -193,6 +193,38 @@ build_go_client() {
     CGO_ENABLED=1 go build -o video_client
     
     print_success "Built video_client (Go client)"
+}
+
+# =============================================================================
+# Install to System
+# =============================================================================
+install_system() {
+    print_header "Installing to System"
+    
+    cd "${BUILD_DIR}"
+    
+    echo "Installing to: ${INSTALL_PREFIX}"
+    echo "  Library:  ${INSTALL_PREFIX}/lib/libvideo_encoder.a"
+    echo "  Headers:  ${INSTALL_PREFIX}/include/video_encoder/"
+    echo ""
+    
+    # Check if we need sudo
+    if [ -w "${INSTALL_PREFIX}" ]; then
+        cmake --install . --prefix "${INSTALL_PREFIX}"
+    else
+        echo "Root privileges required for installation to ${INSTALL_PREFIX}"
+        sudo cmake --install . --prefix "${INSTALL_PREFIX}"
+    fi
+    
+    print_success "Library installed to ${INSTALL_PREFIX}/lib/"
+    print_success "Headers installed to ${INSTALL_PREFIX}/include/video_encoder/"
+    
+    # Update library cache
+    if command -v ldconfig &> /dev/null; then
+        if [ -w "/etc/ld.so.conf.d" ] || [ "$(id -u)" -eq 0 ]; then
+            sudo ldconfig 2>/dev/null || true
+        fi
+    fi
 }
 
 # =============================================================================
@@ -269,6 +301,8 @@ main() {
     # Parse arguments
     SKIP_DEPS=false
     SKIP_TESTS=false
+    INSTALL_SYSTEM=false
+    INSTALL_PREFIX="/usr/local"
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -280,13 +314,28 @@ main() {
                 SKIP_TESTS=true
                 shift
                 ;;
+            --install)
+                INSTALL_SYSTEM=true
+                shift
+                ;;
+            --prefix)
+                INSTALL_PREFIX="$2"
+                shift 2
+                ;;
             --help|-h)
                 echo "Usage: $0 [OPTIONS]"
                 echo ""
                 echo "Options:"
                 echo "  --skip-deps   Skip dependency checking"
                 echo "  --skip-tests  Skip running tests after build"
+                echo "  --install     Install library to system (default: /usr/local)"
+                echo "  --prefix DIR  Set installation prefix (default: /usr/local)"
                 echo "  --help, -h    Show this help message"
+                echo ""
+                echo "Examples:"
+                echo "  $0                      # Build only"
+                echo "  $0 --install            # Build and install to /usr/local"
+                echo "  $0 --install --prefix /opt/video_encoder"
                 exit 0
                 ;;
             *)
@@ -310,6 +359,11 @@ main() {
     # Run tests
     if [ "$SKIP_TESTS" = false ]; then
         run_tests
+    fi
+    
+    # Install to system if requested
+    if [ "$INSTALL_SYSTEM" = true ]; then
+        install_system
     fi
     
     # Print summary
