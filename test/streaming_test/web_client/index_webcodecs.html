@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Stream Viewer - JavaScript H.264 Decoder (WebCodecs)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #4ecca3;
+        }
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            max-width: 900px;
+            width: 100%;
+        }
+        .connection-panel {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+        .connection-panel input {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 14px;
+            width: 250px;
+        }
+        .connection-panel button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #4ecca3;
+            color: #1a1a2e;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .connection-panel button:hover {
+            background: #3db892;
+        }
+        .connection-panel button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        #videoCanvas {
+            border: 3px solid #4ecca3;
+            border-radius: 8px;
+            background: #000;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            background: #16213e;
+            border-radius: 8px;
+            width: 100%;
+        }
+        .controls h2 {
+            color: #4ecca3;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .control-row label {
+            min-width: 100px;
+            font-size: 14px;
+            color: #aaa;
+        }
+        .control-row input[type="range"] {
+            flex: 1;
+            accent-color: #4ecca3;
+        }
+        .control-row .value {
+            min-width: 60px;
+            text-align: right;
+            font-weight: bold;
+            color: #4ecca3;
+        }
+        .quality-presets {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .preset-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #eee;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+        .preset-btn:hover {
+            background: #4ecca3;
+            color: #1a1a2e;
+        }
+        .preset-btn.active {
+            background: #4ecca3;
+            color: #1a1a2e;
+        }
+        .action-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #4ecca3;
+            color: #1a1a2e;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .action-btn:hover {
+            background: #3db892;
+        }
+        .action-btn.danger {
+            background: #e76f51;
+        }
+        .action-btn.danger:hover {
+            background: #d45a3e;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+            width: 100%;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: #1a1a2e;
+            border-radius: 6px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4ecca3;
+        }
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .status.connected { background: #2d6a4f; color: #95d5b2; }
+        .status.disconnected { background: #6a2d2d; color: #d59595; }
+        .status.connecting { background: #6a5a2d; color: #d5c595; }
+        .status.decoding { background: #2d4a6a; color: #95b5d5; }
+        .status.unsupported { background: #6a2d6a; color: #d595d5; }
+        .log-panel {
+            width: 100%;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+        }
+        .log-panel h3 {
+            color: #4ecca3;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        #logOutput {
+            background: #0a0a15;
+            border-radius: 6px;
+            padding: 10px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            color: #aaa;
+        }
+        .log-entry { margin-bottom: 2px; }
+        .log-entry.error { color: #e76f51; }
+        .log-entry.success { color: #4ecca3; }
+        .log-entry.info { color: #95b5d5; }
+        .log-entry.warn { color: #d5c595; }
+        .warning-box {
+            background: #3d2d1d;
+            border: 1px solid #6a5a2d;
+            border-radius: 8px;
+            padding: 15px;
+            width: 100%;
+            color: #d5c595;
+            font-size: 14px;
+        }
+        .warning-box a { color: #4ecca3; }
+    </style>
+</head>
+<body>
+    <h1>🎬 Video Stream Viewer</h1>
+    <p class="subtitle">Using WebCodecs API for hardware-accelerated H.264 decoding</p>
+    
+    <div class="container">
+        <!-- Browser Support Warning -->
+        <div class="warning-box" id="warningBox" style="display: none;">
+            ⚠️ <strong>WebCodecs API not supported in this browser.</strong><br>
+            Please use Chrome 94+, Edge 94+, or Opera 80+.<br>
+            <a href="https://caniuse.com/webcodecs" target="_blank">Check browser support</a>
+        </div>
+
+        <!-- Connection Panel -->
+        <div class="connection-panel">
+            <input type="text" id="serverAddress" placeholder="Server address" value="localhost:8765">
+            <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+            <span id="status" class="status disconnected">Disconnected</span>
+        </div>
+
+        <!-- Video Canvas -->
+        <canvas id="videoCanvas" width="640" height="480"></canvas>
+        
+        <!-- Quality Controls -->
+        <div class="controls">
+            <h2>🎛️ Quality Controls</h2>
+            
+            <div class="control-group">
+                <label>Quality Presets:</label>
+                <div class="quality-presets">
+                    <button class="preset-btn" onclick="setQuality('low')">Low (CRF 35)</button>
+                    <button class="preset-btn" onclick="setQuality('medium')">Medium (CRF 28)</button>
+                    <button class="preset-btn active" onclick="setQuality('high')">High (CRF 23)</button>
+                    <button class="preset-btn" onclick="setQuality('ultra')">Ultra (CRF 18)</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="control-row">
+                    <label>CRF (Quality):</label>
+                    <input type="range" id="crfSlider" min="0" max="51" value="23" oninput="updateCrfDisplay()">
+                    <span class="value" id="crfValue">23</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="control-row">
+                    <label>GOP Size:</label>
+                    <input type="range" id="gopSlider" min="1" max="300" value="60" oninput="updateGopDisplay()">
+                    <span class="value" id="gopValue">60</span>
+                </div>
+            </div>
+            
+            <div class="control-row" style="margin-top: 10px;">
+                <button class="action-btn" onclick="applySettings()">Apply Settings</button>
+                <button class="action-btn danger" onclick="forceKeyframe()">Force Keyframe</button>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">Packets Received</div>
+                <div class="stat-value" id="packetsReceived">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Frames Decoded</div>
+                <div class="stat-value" id="framesDecoded">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">FPS</div>
+                <div class="stat-value" id="fps">0.00</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Bitrate</div>
+                <div class="stat-value" id="bitrate">0 kbps</div>
+            </div>
+        </div>
+
+        <!-- Log Panel -->
+        <div class="log-panel">
+            <h3>📋 Decoder Log</h3>
+            <div id="logOutput"></div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // Global State
+        // =========================================================================
+        let ws = null;
+        let decoder = null;
+        let isConnected = false;
+        let isDecoderConfigured = false;
+        let pendingFrames = [];
+        let frameTimestamp = 0;
+
+        // Stats
+        let packetsReceived = 0;
+        let framesDecoded = 0;
+        let fpsCounter = 0;
+        let lastFpsUpdate = Date.now();
+        let bytesThisSecond = 0;
+        let lastBitrateUpdate = Date.now();
+
+        // Canvas
+        const canvas = document.getElementById('videoCanvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = 640;
+        const HEIGHT = 480;
+
+        // =========================================================================
+        // Logging
+        // =========================================================================
+        function log(message, type = '') {
+            const logOutput = document.getElementById('logOutput');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + type;
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            logOutput.appendChild(entry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+            
+            while (logOutput.children.length > 100) {
+                logOutput.removeChild(logOutput.firstChild);
+            }
+        }
+
+        function setStatus(text, className) {
+            const status = document.getElementById('status');
+            status.textContent = text;
+            status.className = 'status ' + className;
+        }
+
+        // =========================================================================
+        // Check WebCodecs Support
+        // =========================================================================
+        function checkWebCodecsSupport() {
+            if (typeof VideoDecoder === 'undefined') {
+                document.getElementById('warningBox').style.display = 'block';
+                document.getElementById('connectBtn').disabled = true;
+                setStatus('Unsupported', 'unsupported');
+                log('WebCodecs API not supported in this browser', 'error');
+                return false;
+            }
+            log('WebCodecs API supported', 'success');
+            return true;
+        }
+
+        // =========================================================================
+        // H.264 NAL Unit Parser
+        // =========================================================================
+        function parseNALUnits(data) {
+            const nalUnits = [];
+            const view = new Uint8Array(data);
+            let start = 0;
+
+            // Find NAL unit boundaries (0x00 0x00 0x00 0x01 or 0x00 0x00 0x01)
+            for (let i = 0; i < view.length - 3; i++) {
+                let startCodeLen = 0;
+                
+                if (view[i] === 0 && view[i+1] === 0 && view[i+2] === 1) {
+                    startCodeLen = 3;
+                } else if (view[i] === 0 && view[i+1] === 0 && view[i+2] === 0 && view[i+3] === 1) {
+                    startCodeLen = 4;
+                }
+
+                if (startCodeLen > 0) {
+                    if (i > start) {
+                        nalUnits.push(view.slice(start, i));
+                    }
+                    start = i;
+                    i += startCodeLen - 1;
+                }
+            }
+
+            // Add last NAL unit
+            if (start < view.length) {
+                nalUnits.push(view.slice(start));
+            }
+
+            return nalUnits;
+        }
+
+        function getNALType(nalUnit) {
+            // Find the start code and get NAL type from first byte after it
+            for (let i = 0; i < nalUnit.length - 1; i++) {
+                if ((nalUnit[i] === 0 && nalUnit[i+1] === 0 && nalUnit[i+2] === 1) ||
+                    (nalUnit[i] === 0 && nalUnit[i+1] === 0 && nalUnit[i+2] === 0 && nalUnit[i+3] === 1)) {
+                    const offset = nalUnit[i+2] === 1 ? 3 : 4;
+                    return nalUnit[i + offset] & 0x1F;
+                }
+            }
+            return nalUnit[0] & 0x1F;
+        }
+
+        function isKeyframe(data) {
+            const nalUnits = parseNALUnits(data);
+            for (const nal of nalUnits) {
+                const type = getNALType(nal);
+                // Type 5 = IDR slice (keyframe), Type 7 = SPS, Type 8 = PPS
+                if (type === 5 || type === 7) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // =========================================================================
+        // WebCodecs Decoder
+        // =========================================================================
+        async function initDecoder() {
+            log('Initializing WebCodecs H.264 decoder...', 'info');
+
+            try {
+                decoder = new VideoDecoder({
+                    output: handleDecodedFrame,
+                    error: (err) => {
+                        log('Decoder error: ' + err.message, 'error');
+                        console.error('Decoder error:', err);
+                    }
+                });
+
+                // Configure decoder for Annex B H.264 stream
+                // We'll reconfigure when we receive the first keyframe with SPS/PPS
+                const config = {
+                    codec: 'avc1.42001f', // Baseline profile, level 3.1
+                    codedWidth: WIDTH,
+                    codedHeight: HEIGHT,
+                    optimizeForLatency: true,
+                };
+
+                const support = await VideoDecoder.isConfigSupported(config);
+                if (!support.supported) {
+                    throw new Error('H.264 decoder configuration not supported');
+                }
+
+                decoder.configure(config);
+                isDecoderConfigured = true;
+                log('Decoder configured: ' + config.codec, 'success');
+                return true;
+
+            } catch (err) {
+                log('Decoder init error: ' + err.message, 'error');
+                console.error('Decoder init error:', err);
+                return false;
+            }
+        }
+
+        function handleDecodedFrame(frame) {
+            try {
+                framesDecoded++;
+                fpsCounter++;
+                document.getElementById('framesDecoded').textContent = framesDecoded;
+
+                // Draw frame to canvas
+                ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+                
+                // Close the frame to release resources
+                frame.close();
+
+            } catch (err) {
+                console.error('Frame render error:', err);
+            }
+        }
+
+        async function decodePacket(data) {
+            if (!decoder || decoder.state === 'closed') {
+                return;
+            }
+
+            try {
+                const isKey = isKeyframe(data);
+                
+                // Create EncodedVideoChunk
+                const chunk = new EncodedVideoChunk({
+                    type: isKey ? 'key' : 'delta',
+                    timestamp: frameTimestamp,
+                    data: data
+                });
+
+                frameTimestamp += 33333; // ~30fps in microseconds
+
+                // Decode
+                if (decoder.state === 'configured') {
+                    decoder.decode(chunk);
+                }
+
+            } catch (err) {
+                // Don't spam logs for every decode error
+                if (err.message.includes('key')) {
+                    log('Waiting for keyframe...', 'warn');
+                }
+            }
+        }
+
+        // =========================================================================
+        // WebSocket Connection
+        // =========================================================================
+        async function connect() {
+            const serverAddress = document.getElementById('serverAddress').value;
+
+            if (!checkWebCodecsSupport()) {
+                return;
+            }
+
+            if (!decoder) {
+                const initialized = await initDecoder();
+                if (!initialized) {
+                    log('Failed to initialize decoder', 'error');
+                    return;
+                }
+            }
+
+            setStatus('Connecting...', 'connecting');
+            log(`Connecting to ws://${serverAddress}...`, 'info');
+
+            try {
+                ws = new WebSocket(`ws://${serverAddress}`);
+                ws.binaryType = 'arraybuffer';
+
+                ws.onopen = function() {
+                    isConnected = true;
+                    setStatus('Connected', 'connected');
+                    log('Connected to server', 'success');
+                    document.getElementById('connectBtn').textContent = 'Disconnect';
+                    
+                    // Request keyframe on connect
+                    ws.send('keyframe=1');
+                    log('Requested keyframe from server', 'info');
+                };
+
+                ws.onclose = function() {
+                    isConnected = false;
+                    setStatus('Disconnected', 'disconnected');
+                    log('Disconnected from server', 'info');
+                    document.getElementById('connectBtn').textContent = 'Connect';
+                };
+
+                ws.onerror = function(err) {
+                    log('WebSocket error', 'error');
+                    console.error('WebSocket error:', err);
+                };
+
+                ws.onmessage = async function(event) {
+                    if (event.data instanceof ArrayBuffer) {
+                        packetsReceived++;
+                        bytesThisSecond += event.data.byteLength;
+                        document.getElementById('packetsReceived').textContent = packetsReceived;
+
+                        // Decode the H.264 data
+                        await decodePacket(event.data);
+
+                        // Update stats
+                        updateStats();
+                    }
+                };
+
+            } catch (err) {
+                log('Connection error: ' + err.message, 'error');
+                setStatus('Error', 'disconnected');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            isConnected = false;
+            setStatus('Disconnected', 'disconnected');
+            document.getElementById('connectBtn').textContent = 'Connect';
+        }
+
+        function toggleConnection() {
+            if (isConnected) {
+                disconnect();
+            } else {
+                connect();
+            }
+        }
+
+        // =========================================================================
+        // Stats Update
+        // =========================================================================
+        function updateStats() {
+            const now = Date.now();
+
+            // Update FPS every second
+            if (now - lastFpsUpdate >= 1000) {
+                document.getElementById('fps').textContent = fpsCounter.toFixed(2);
+                fpsCounter = 0;
+                lastFpsUpdate = now;
+            }
+
+            // Update bitrate every second
+            if (now - lastBitrateUpdate >= 1000) {
+                const kbps = (bytesThisSecond * 8) / 1000;
+                document.getElementById('bitrate').textContent = kbps.toFixed(0) + ' kbps';
+                bytesThisSecond = 0;
+                lastBitrateUpdate = now;
+            }
+        }
+
+        // =========================================================================
+        // Quality Controls
+        // =========================================================================
+        function updateCrfDisplay() {
+            document.getElementById('crfValue').textContent = document.getElementById('crfSlider').value;
+        }
+
+        function updateGopDisplay() {
+            document.getElementById('gopValue').textContent = document.getElementById('gopSlider').value;
+        }
+
+        function setQuality(preset) {
+            const presets = {
+                'low': { crf: 35, gop: 120 },
+                'medium': { crf: 28, gop: 90 },
+                'high': { crf: 23, gop: 60 },
+                'ultra': { crf: 18, gop: 30 }
+            };
+            
+            const p = presets[preset];
+            document.getElementById('crfSlider').value = p.crf;
+            document.getElementById('gopSlider').value = p.gop;
+            updateCrfDisplay();
+            updateGopDisplay();
+            
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            applySettings();
+        }
+
+        function applySettings() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const crf = document.getElementById('crfSlider').value;
+                const gop = document.getElementById('gopSlider').value;
+                const msg = `crf=${crf}&gop_size=${gop}`;
+                ws.send(msg);
+                log(`Sent settings: ${msg}`, 'info');
+            } else {
+                log('Not connected to server', 'error');
+            }
+        }
+
+        function forceKeyframe() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send('keyframe=1');
+                log('Requested keyframe', 'info');
+            } else {
+                log('Not connected to server', 'error');
+            }
+        }
+
+        // =========================================================================
+        // Initialize
+        // =========================================================================
+        window.onload = function() {
+            checkWebCodecsSupport();
+            log('Page loaded. Click Connect to start streaming.', 'info');
+        };
+    </script>
+</body>
+</html>

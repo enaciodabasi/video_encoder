@@ -87,6 +87,8 @@ private:
   bool force_next_keyframe_ = false;
 
   bool initialize_av();
+
   void cleanup_av();
+
   bool flush_encoder();
 };

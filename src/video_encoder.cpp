@@ -355,6 +355,7 @@ bool VideoEncoder::encode_frame(const cv::Mat &frame) {
 
   switch (avcodec_receive_packet(codec_ctx_, packet_)) {
   case 0: {
+
     std::vector<uint8_t> packet_data(packet_->data,
                                      packet_->data + packet_->size);
     frame_buffer_.push_front(std::move(packet_data));
